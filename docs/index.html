@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Base de Datos de Accidentes — Chile</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="header">
+    <div class="brand">
+      <div>
+        <h1>Base de Datos de Accidentes — Chile</h1>
+        <p class="subtitle">Consulta por Región, Comuna e Intersección — últimos 5 años según datos de Carabineros.cl</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <div class="brand">
+        <div>
+          <p style="margin-bottom: 20px;"  class="text" ><b>NOTA: </b >Se recomienda buscar primero 1 calle para ver las posibles combinaciones</p>
+        </div>
+      </div>
+      <h2 class="card-title">Búsqueda</h2>
+      <div class="grid grid-2">
+        <div class="field">
+          <label for="region">Región</label>
+          <select id="region"></select>
+        </div>
+        <div class="field">
+          <label for="comuna">Comuna (texto exacto o parcial)</label>
+          <input id="comuna" placeholder="Ej: Santiago / Rancagua / Valparaíso" />
+        </div>
+      </div>
+
+      <div class="grid grid-3">
+        <div class="field">
+          <label for="calleA">Calle A</label>
+          <input id="calleA" placeholder="Ej: Alameda" />
+        </div>
+        <div class="field">
+          <label for="calleB">Calle B</label>
+          <input id="calleB" placeholder="Ej: Vicuña Mackenna" />
+        </div>
+        <div class="field align-end">
+          <div class="btn-row">
+            <button id="buscar" class="btn-primary">Buscar</button>
+            <button id="limpiar" class="btn-primary" >Limpiar</button>
+            <button id="export-page" class="btn-primary">Exportar página</button>
+            <button id="export-all" class="btn-primary" >Exportar filtrado</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="pager">
+          <span class="muted">Página</span>
+          <button id="prev" class="btn btn-icon" title="Anterior">⟵</button>
+          <input id="page" type="number" min="1" value="1" />
+          <button id="next" class="btn btn-icon" title="Siguiente">⟶</button>
+        </div>
+        <div class="spacer"></div>
+        <div class="status" id="status">Listo</div>
+      </div>
+
+      <div class="table-wrap">
+        <table id="tbl">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Región</th>
+              <th>Comuna</th>
+              <th>Urbano/Rural</th>
+              <th>Calleuno</th>
+              <th>Calledos</th>
+              <th>Ubicación/km</th>
+              <th>Siniestros</th>
+              <th>Causas</th>
+              <th>Fallecidos</th>
+              <th>Graves</th>
+              <th>M/Grave</th>
+              <th>Leves</th>
+              <th>Ilesos</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

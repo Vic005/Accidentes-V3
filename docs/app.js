@@ -285,7 +285,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // ---------- export ----------
-    function toCSV(rows, delimiter=';'){
+    function toCSV(rows, delimiter=','){
       const cols = state.columns.map(c => c.key);
       const esc = (s) => {
         const v = s==null ? '' : String(s);

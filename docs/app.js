@@ -185,28 +185,71 @@ document.addEventListener("DOMContentLoaded", () => {
         const th = document.createElement('th');
         let el;
         if (c.type === 'cat'){
-          el = document.createElement('select');
-          el.multiple = true;
-          // opciones únicas (capar a 200)
-          const uniques = Array.from(new Set(state.allRows.map(r => r[c.key]).filter(x => x!==undefined && x!==null && String(x).trim()!==""))).sort();
-          const sliced = uniques.slice(0, 200);
-          el.innerHTML += sliced.map(v => `<option value="${String(v)}">${String(v)}</option>`).join('');
-          if (uniques.length > 200){
-            const opt = document.createElement('option');
-            opt.value = "__MANY__";
-            opt.textContent = `… (${uniques.length} valores)`;
-            el.appendChild(opt);
-          }
+          el = document.createElement('div');
+          el.className = 'filter-box';
+        
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.textContent = 'Filtrar ▼';
+        
+          const panel = document.createElement('div');
+          panel.className = 'filter-panel';
+        
+          const uniques = Array.from(
+            new Set(
+              state.allRows
+                .map(r => r[c.key])
+                .filter(x => x!==undefined && x!==null && String(x).trim()!=="")
+            )
+          ).sort().slice(0, 200);
+        
+          uniques.forEach(v => {
+            const lbl = document.createElement('label');
+            const chk = document.createElement('input');
+            chk.type = 'checkbox';
+            chk.value = String(v);
+        
+            lbl.appendChild(chk);
+            lbl.append(' ' + String(v));
+            panel.appendChild(lbl);
+          });
+        
+          const applyBtn = document.createElement('button');
+          applyBtn.type = 'button';
+          applyBtn.textContent = 'Aplicar';
+        
+          applyBtn.addEventListener('click', () => {
+            const selected = Array.from(
+              panel.querySelectorAll('input:checked')
+            ).map(i => i.value);
+        
+            if (selected.length){
+              state.filters[c.key] = selected;
+            } else {
+              delete state.filters[c.key];
+            }
+        
+            applyFilters();
+            panel.style.display = 'none';
+          });
+        
+          btn.addEventListener('click', () => {
+            panel.style.display =
+              panel.style.display === 'block' ? 'none' : 'block';
+          });
+        
+          el.appendChild(btn);
+          el.appendChild(panel);
+          el.appendChild(applyBtn);
         } else {
           el = document.createElement('input');
           el.type = 'text';
           el.placeholder = (c.type === 'num') ? 'e.j. >=1' : 'contiene…';
         }
-        el.dataset.col = c.key;
-        el.addEventListener(
-          el.tagName === 'SELECT' ? 'change' : 'input',
-          onFilterChange
-        );
+        if (c.type !== 'cat'){
+          el.dataset.col = c.key;
+          el.addEventListener('input', onFilterChange);
+        }
         th.appendChild(el);
         tr2.appendChild(th);
       });
@@ -219,18 +262,9 @@ document.addEventListener("DOMContentLoaded", () => {
     function onFilterChange(ev){
       const el = ev.target;
       const col = el.dataset.col;
+      const v = el.value.trim();
     
-      let v;
-    
-      if (el.tagName === 'SELECT' && el.multiple){
-        v = Array.from(el.selectedOptions)
-          .map(o => o.value)
-          .filter(x => x && x !== "__MANY__");
-      } else {
-        v = el.value.trim();
-      }
-    
-      if (!v || (Array.isArray(v) && v.length === 0)){
+      if (!v){
         delete state.filters[col];
       } else {
         state.filters[col] = v;

@@ -186,6 +186,7 @@ document.addEventListener("DOMContentLoaded", () => {
         let el;
         if (c.type === 'cat'){
           el = document.createElement('select');
+          el.multiple = true;
           el.innerHTML = `<option value="">(Todos)</option>`;
           // opciones únicas (capar a 200)
           const uniques = Array.from(new Set(state.allRows.map(r => r[c.key]).filter(x => x!==undefined && x!==null && String(x).trim()!==""))).sort();
@@ -216,9 +217,23 @@ document.addEventListener("DOMContentLoaded", () => {
     function onFilterChange(ev){
       const el = ev.target;
       const col = el.dataset.col;
-      const v = (el.tagName === 'SELECT') ? el.value : el.value.trim();
-      if (!v) delete state.filters[col];
-      else state.filters[col] = v;
+    
+      let v;
+    
+      if (el.tagName === 'SELECT' && el.multiple){
+        v = Array.from(el.selectedOptions)
+          .map(o => o.value)
+          .filter(x => x && x !== "__MANY__");
+      } else {
+        v = el.value.trim();
+      }
+    
+      if (!v || (Array.isArray(v) && v.length === 0)){
+        delete state.filters[col];
+      } else {
+        state.filters[col] = v;
+      }
+    
       applyFilters();
     }
 

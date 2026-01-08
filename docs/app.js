@@ -263,7 +263,6 @@ document.addEventListener("DOMContentLoaded", () => {
             } else {
               if (String(val) !== String(rule)) return false;
             }
-          }
           } else {
             const needle = rmAcc(rule).toLowerCase();
             const hay = rmAcc(String(val||"")).toLowerCase();

@@ -187,7 +187,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (c.type === 'cat'){
           el = document.createElement('select');
           el.multiple = true;
-          el.innerHTML = `<option value="">(Todos)</option>`;
           // opciones únicas (capar a 200)
           const uniques = Array.from(new Set(state.allRows.map(r => r[c.key]).filter(x => x!==undefined && x!==null && String(x).trim()!==""))).sort();
           const sliced = uniques.slice(0, 200);
@@ -204,7 +203,10 @@ document.addEventListener("DOMContentLoaded", () => {
           el.placeholder = (c.type === 'num') ? 'e.j. >=1' : 'contiene…';
         }
         el.dataset.col = c.key;
-        el.addEventListener('input', onFilterChange);
+        el.addEventListener(
+          el.tagName === 'SELECT' ? 'change' : 'input',
+          onFilterChange
+        );
         th.appendChild(el);
         tr2.appendChild(th);
       });

@@ -24,10 +24,10 @@ h1{font-size:20px; margin:0}
 .subtitle{margin:2px 0 0; color:#FFFFFF; font-size:18px}
 .text{margin:2px 0 0; color:#080808; font-size:16px}
 
-.container{max-width:1300px; margin:24px auto; padding:0 16px}
+.container{max-width:1300px; margin:12px auto; padding:0 16px}
 .card{
   background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px 16px 8px;
-  box-shadow:0 6px 18px rgba(2,6,23,0.06);
+  box-shadow:0 6px 18px rgba(2,6,23,0.06);display: flow-root;
 }
 .card-title{margin:4px 0 12px; font-size:16px}
 .grid{display:grid; gap:12px}

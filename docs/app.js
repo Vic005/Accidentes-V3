@@ -41,7 +41,7 @@ document.addEventListener("DOMContentLoaded", () => {
         {key:"Urbano/Rural", label:"Urbano/Rural", type:"cat"},
         {key:"Calleuno", label:"Calle 1", type:"text"},
         {key:"Calledos", label:"Calle 2", type:"text"},
-        {key:"Ubicación/km", label:"Ubicación/km", type:"text"},
+        {key:"Ubicación/km", label:"Ubicación/km", type:"cat"},
         {key:"Siniestros", label:"Siniestros", type:"cat"},
         {key:"Causas", label:"Causas", type:"cat"},
         {key:"Fallecidos", label:"Fallecidos", type:"num"},

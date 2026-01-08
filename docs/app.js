@@ -258,7 +258,12 @@ document.addEventListener("DOMContentLoaded", () => {
             if (op==='<= ' && !(num <= rhs)) return false;
             if (op==='<=') { if (!(num <= rhs)) return false; }
           } else if (sc?.type === 'cat'){
-            if (String(val) !== String(rule)) return false;
+            if (Array.isArray(rule)){
+              if (!rule.map(String).includes(String(val))) return false;
+            } else {
+              if (String(val) !== String(rule)) return false;
+            }
+          }
           } else {
             const needle = rmAcc(rule).toLowerCase();
             const hay = rmAcc(String(val||"")).toLowerCase();

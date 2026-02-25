@@ -1,23 +1,26 @@
 document.addEventListener("DOMContentLoaded", () => {
   (async function main(){
     // ---------- helpers DOM ----------
-    const $  = (id) => document.getElementById(id);
-    const regionSel = $('region');
-    let comunaEl    = $('comuna');   // si es input, lo transformamos en <select>
-    const calleAInp = $('calleA');
-    const calleBInp = $('calleB');
-    const pageInp   = $('page');
-    const statusEl  = $('status');
-    const tbody     = document.querySelector('#tbl tbody');
-    const thead     = document.querySelector('#tbl thead') || (() => {
-      const t = document.querySelector('#tbl'); const th = document.createElement('thead'); t.prepend(th); return th;
-    })();
+    const $ = (id) => document.getElementById(id);
+    const regionSel  = $('region');
+    let comunaEl     = $('comuna');
+    const calleAInp  = $('calleA');
+    const calleBInp  = $('calleB');
+    const pageInp    = $('page');
+    const statusEl   = $('status');
+    const tbody      = document.querySelector('#tbl tbody');
+    const thead      = document.querySelector('#tbl thead');
+
+    // UI panels
+    const emptyState   = $('empty-state');
+    const resultsPanel = $('results-panel');
+    const loadingState = $('loading-state');
 
     // ---------- regiones ----------
     const REGIONES = [
       ["region-metropolitana-de-santiago","Región Metropolitana de Santiago"],
       ["valparaiso","Valparaíso"],
-      ["libertador-general-bernardo-ohiggins","Libertador General Bernardo O’Higgins"],
+      ["libertador-general-bernardo-ohiggins","Libertador General Bernardo O'Higgins"],
       ["maule","Maule"],["nuble","Ñuble"],["biobio","Biobío"],["la-araucania","La Araucanía"],
       ["los-rios","Los Ríos"],["los-lagos","Los Lagos"],
       ["aysen-del-general-carlos-ibanez-del-campo","Aysén del General Carlos Ibáñez del Campo"],
@@ -31,26 +34,30 @@ document.addEventListener("DOMContentLoaded", () => {
     const state = {
       page: 1,
       limit: 100,
-      allRows: [],      // resultado base de la búsqueda (cruce o 1 calle)
-      filteredRows: [], // resultado tras filtros de encabezado
-      filters: {},      // {col: value/string/expr}
+      allRows: [],
+      filteredRows: [],
+      filters: {},
+      currentLabel: '',
       columns: [
-        {key:"Fecha", label:"Fecha", type:"text"},
-        {key:"Región", label:"Región", type:"cat"},
-        {key:"Comuna", label:"Comuna", type:"cat"},
-        {key:"Urbano/Rural", label:"Urbano/Rural", type:"cat"},
-        {key:"Calleuno", label:"Calle 1", type:"text"},
-        {key:"Calledos", label:"Calle 2", type:"text"},
-        {key:"Ubicación/km", label:"Ubicación/km", type:"cat"},
-        {key:"Siniestros", label:"Siniestros", type:"cat"},
-        {key:"Causas", label:"Causas", type:"cat"},
-        {key:"Fallecidos", label:"Fallecidos", type:"num"},
-        {key:"Graves", label:"Graves", type:"num"},
-        {key:"M/Grave", label:"M/Grave", type:"num"},
-        {key:"Leves", label:"Leves", type:"num"},
-        {key:"Ilesos", label:"Ilesos", type:"num"},
+        {key:"Fecha",        label:"Fecha",         type:"text"},
+        {key:"Región",       label:"Región",        type:"cat"},
+        {key:"Comuna",       label:"Comuna",        type:"cat"},
+        {key:"Urbano/Rural", label:"Urbano/Rural",  type:"cat"},
+        {key:"Calleuno",     label:"Calle 1",       type:"text"},
+        {key:"Calledos",     label:"Calle 2",       type:"text"},
+        {key:"Ubicación/km", label:"Ubic./km",      type:"cat"},
+        {key:"Siniestros",   label:"Siniestros",    type:"cat"},
+        {key:"Causas",       label:"Causas",        type:"cat"},
+        {key:"Fallecidos",   label:"Fallecidos",    type:"num"},
+        {key:"Graves",       label:"Graves",        type:"num"},
+        {key:"M/Grave",      label:"M/Grave",       type:"num"},
+        {key:"Leves",        label:"Leves",         type:"num"},
+        {key:"Ilesos",       label:"Ilesos",        type:"num"},
       ]
     };
+
+    // ---------- download queue ----------
+    const queueItems = []; // [{label, rows}]
 
     // ---------- utils ----------
     const rmAcc = (s) => (s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"");
@@ -92,30 +99,19 @@ document.addEventListener("DOMContentLoaded", () => {
       return js;
     }
 
-    // convierte input#comuna en select#comuna
-    function ensureComunaSelect(){
-      if (comunaEl && comunaEl.tagName.toLowerCase() === 'select') return comunaEl;
-      const sel = document.createElement('select');
-      sel.id = 'comuna';
-      sel.className = comunaEl.className || '';
-      comunaEl.replaceWith(sel);
-      comunaEl = sel;
-      return sel;
-    }
-
+    // populateComunas (ahora usa el select directamente)
     async function populateComunas(regionSlug){
-      const sel = ensureComunaSelect();
-      sel.innerHTML = `<option value="">— Selecciona una comuna —</option>`;
-      try{
+      comunaEl.innerHTML = `<option value="">— Selecciona una comuna —</option>`;
+      try {
         const comunas = await loadComunas(regionSlug);
-        sel.innerHTML += comunas.map(c => `<option value="${c}">${c}</option>`).join('');
-      }catch(e){
+        comunaEl.innerHTML += comunas.map(c => `<option value="${c}">${c}</option>`).join('');
+      } catch(e) {
         console.error(e);
-        sel.innerHTML = `<option value="">(Error cargando comunas)</option>`;
+        comunaEl.innerHTML = `<option value="">(Error cargando comunas)</option>`;
       }
     }
 
-    // datalist opcional para calles
+    // datalist para calles
     async function populateStreetDatalists(regionSlug, comuna){
       const listIdA = 'dl-calleA', listIdB = 'dl-calleB';
       let dlA = document.getElementById(listIdA);
@@ -124,7 +120,6 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!dlB){ dlB = document.createElement('datalist'); dlB.id = listIdB; document.body.appendChild(dlB); }
       calleAInp.setAttribute('list', listIdA);
       calleBInp.setAttribute('list', listIdB);
-
       const streets = await loadStreets(regionSlug, comuna);
       const opts = streets.map(s => `<option value="${s}"></option>`).join('');
       dlA.innerHTML = opts;
@@ -161,11 +156,11 @@ document.addEventListener("DOMContentLoaded", () => {
       const A = (calleA||"").trim(), B = (calleB||"").trim();
       if (!A || !B) return [];
       const aSlug = slug(A), bSlug = slug(B);
-      const key1  = `${aSlug}__x__${bSlug}`;
-      const key2  = `${bSlug}__x__${aSlug}`;
-      const pack  = await loadPack(regionSlug, comuna);
+      const key1 = `${aSlug}__x__${bSlug}`;
+      const key2 = `${bSlug}__x__${aSlug}`;
+      const pack = await loadPack(regionSlug, comuna);
       if (!pack) return [];
-      const dict  = pack.intersections || {};
+      const dict = pack.intersections || {};
       return dict[key1] || dict[key2] || [];
     }
 
@@ -184,72 +179,80 @@ document.addEventListener("DOMContentLoaded", () => {
       state.columns.forEach(c => {
         const th = document.createElement('th');
         let el;
+
         if (c.type === 'cat'){
           el = document.createElement('div');
           el.className = 'filter-box';
-        
+
           const btn = document.createElement('button');
           btn.type = 'button';
-          btn.textContent = 'Filtrar ▼';
-        
+          btn.className = 'filter-btn';
+          btn.innerHTML = `<span>Filtrar</span><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 3.5l3 3 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
           const panel = document.createElement('div');
           panel.className = 'filter-panel';
-        
+
           const uniques = Array.from(
-            new Set(
-              state.allRows
-                .map(r => r[c.key])
-                .filter(x => x!==undefined && x!==null && String(x).trim()!=="")
-            )
+            new Set(state.allRows.map(r => r[c.key]).filter(x => x!==undefined && x!==null && String(x).trim()!==""))
           ).sort().slice(0, 200);
-        
+
           uniques.forEach(v => {
             const lbl = document.createElement('label');
             const chk = document.createElement('input');
             chk.type = 'checkbox';
             chk.value = String(v);
-        
             lbl.appendChild(chk);
             lbl.append(' ' + String(v));
             panel.appendChild(lbl);
           });
-        
+
           const applyBtn = document.createElement('button');
           applyBtn.type = 'button';
-          applyBtn.textContent = 'Aplicar';
-        
+          applyBtn.className = 'filter-apply';
+          applyBtn.textContent = 'Aplicar filtro';
+
           applyBtn.addEventListener('click', () => {
-            const selected = Array.from(
-              panel.querySelectorAll('input:checked')
-            ).map(i => i.value);
-        
+            const selected = Array.from(panel.querySelectorAll('input:checked')).map(i => i.value);
             if (selected.length){
               state.filters[c.key] = selected;
+              btn.classList.add('has-filter');
             } else {
               delete state.filters[c.key];
+              btn.classList.remove('has-filter');
             }
-        
             applyFilters();
             panel.style.display = 'none';
+            btn.classList.remove('active');
           });
-        
-          btn.addEventListener('click', () => {
-            panel.style.display =
-              panel.style.display === 'block' ? 'none' : 'block';
+
+          panel.appendChild(applyBtn);
+
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = panel.style.display === 'block';
+            // close all other panels
+            document.querySelectorAll('.filter-panel').forEach(p => p.style.display = 'none');
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            panel.style.display = isOpen ? 'none' : 'block';
+            if (!isOpen) btn.classList.add('active');
           });
-        
+
           el.appendChild(btn);
           el.appendChild(panel);
-          el.appendChild(applyBtn);
         } else {
           el = document.createElement('input');
           el.type = 'text';
-          el.placeholder = (c.type === 'num') ? 'e.j. >=1' : 'contiene…';
-        }
-        if (c.type !== 'cat'){
+          // Calles: indicar búsqueda cruzada
+          if (c.key === 'Calleuno' || c.key === 'Calledos'){
+            el.placeholder = 'busca en ambas calles…';
+            el.title = 'Busca en Calle 1 Y Calle 2 a la vez';
+          } else {
+            el.placeholder = (c.type === 'num') ? '≥1, ≤5…' : 'buscar…';
+          }
           el.dataset.col = c.key;
           el.addEventListener('input', onFilterChange);
         }
+
         th.appendChild(el);
         tr2.appendChild(th);
       });
@@ -257,19 +260,19 @@ document.addEventListener("DOMContentLoaded", () => {
       thead.innerHTML = '';
       thead.appendChild(tr1);
       thead.appendChild(tr2);
+
+      // close panels on outside click
+      document.addEventListener('click', () => {
+        document.querySelectorAll('.filter-panel').forEach(p => p.style.display = 'none');
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      }, { capture: true });
     }
 
     function onFilterChange(ev){
-      const el = ev.target;
-      const col = el.dataset.col;
-      const v = el.value.trim();
-    
-      if (!v){
-        delete state.filters[col];
-      } else {
-        state.filters[col] = v;
-      }
-    
+      const col = ev.target.dataset.col;
+      const v = ev.target.value.trim();
+      if (!v) delete state.filters[col];
+      else state.filters[col] = v;
       applyFilters();
     }
 
@@ -279,10 +282,10 @@ document.addEventListener("DOMContentLoaded", () => {
         for (const col in f){
           const rule = f[col];
           const val = r[col];
-          if (rule === "__MANY__") continue; // no aplicar
+          if (rule === "__MANY__") continue;
           const sc = state.columns.find(x => x.key===col);
+
           if (sc?.type === 'num'){
-            // mini sintaxis: >=n, <=n, =n, n (igual)
             const m = String(rule).match(/^(>=|<=|=)?\s*(-?\d+(?:\.\d+)?)$/);
             const num = parseFloat(val ?? 'NaN');
             if (!m || Number.isNaN(num)) return false;
@@ -290,19 +293,26 @@ document.addEventListener("DOMContentLoaded", () => {
             const rhs = parseFloat(m[2]);
             if (op==='=' && !(num === rhs)) return false;
             if (op==='>=' && !(num >= rhs)) return false;
-            if (op<=' ' && !(num === rhs)) return false; // safeguard
-            if (op==='<= ' && !(num <= rhs)) return false;
             if (op==='<=') { if (!(num <= rhs)) return false; }
+
           } else if (sc?.type === 'cat'){
             if (Array.isArray(rule)){
               if (!rule.map(String).includes(String(val))) return false;
             } else {
               if (String(val) !== String(rule)) return false;
             }
+
           } else {
+            // Para columnas de calle: buscar en AMBAS (Calleuno y Calledos)
             const needle = rmAcc(rule).toLowerCase();
-            const hay = rmAcc(String(val||"")).toLowerCase();
-            if (!hay.includes(needle)) return false;
+            if (col === 'Calleuno' || col === 'Calledos'){
+              const hay1 = rmAcc(String(r['Calleuno']||'')).toLowerCase();
+              const hay2 = rmAcc(String(r['Calledos']||'')).toLowerCase();
+              if (!hay1.includes(needle) && !hay2.includes(needle)) return false;
+            } else {
+              const hay = rmAcc(String(val||'')).toLowerCase();
+              if (!hay.includes(needle)) return false;
+            }
           }
         }
         return true;
@@ -322,7 +332,6 @@ document.addEventListener("DOMContentLoaded", () => {
       const start = (state.page - 1) * state.limit;
       const slice = state.filteredRows.slice(start, start + state.limit);
 
-      // pinta cuerpo
       tbody.innerHTML = '';
       const frag = document.createDocumentFragment();
       for (const r of slice){
@@ -336,35 +345,171 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       tbody.appendChild(frag);
 
-      statusEl.textContent = `Mostrando ${slice.length} de ${total} filas (pág. ${state.page}/${pages})`;
+      statusEl.textContent = `${total} resultados · página ${state.page}/${pages}`;
+      $('page-total').textContent = `de ${pages}`;
     }
 
-    // ---------- export ----------
+    // ---------- show/hide panels ----------
+    const actionBar = $('action-bar');
+
+    function showEmpty(){
+      emptyState.style.display = '';
+      resultsPanel.style.display = 'none';
+      loadingState.style.display = 'none';
+      actionBar.style.display = 'none';
+    }
+    function showLoading(){
+      emptyState.style.display = 'none';
+      resultsPanel.style.display = 'none';
+      loadingState.style.display = '';
+      actionBar.style.display = 'none';
+    }
+    function showResults(){
+      emptyState.style.display = 'none';
+      loadingState.style.display = 'none';
+      resultsPanel.style.display = '';
+      actionBar.style.display = 'flex';
+    }
+
+    // ---------- toast ----------
+    function showToast(msg, type='success'){
+      const t = document.createElement('div');
+      t.className = `toast ${type}`;
+      t.innerHTML = `<span>${msg}</span>`;
+      document.body.appendChild(t);
+      setTimeout(() => t.remove(), 3200);
+    }
+
+    // ---------- export CSV ----------
     function toCSV(rows, delimiter=','){
       const cols = state.columns.map(c => c.key);
       const esc = (s) => {
         const v = s==null ? '' : String(s);
-        // si contiene comillas, saltos de línea o el delimitador → entrecomillar y duplicar comillas
-        if (v.includes('"') || v.includes('\n') || v.includes(delimiter)) {
-          return `"${v.replace(/"/g,'""')}"`;
-        }
+        if (v.includes('"') || v.includes('\n') || v.includes(delimiter)) return `"${v.replace(/"/g,'""')}"`;
         return v;
       };
-      const head = cols.join(delimiter);
-      const body = rows.map(r => cols.map(k => esc(r[k])).join(delimiter)).join('\n');
-      return head + '\n' + body;
+      return cols.join(delimiter) + '\n' + rows.map(r => cols.map(k => esc(r[k])).join(delimiter)).join('\n');
     }
 
     function download(filename, text){
-      const BOM = '\uFEFF'; // <- hace que Excel lea UTF-8 correctamente
+      const BOM = '\uFEFF';
       const blob = new Blob([BOM + text], {type:'text/csv;charset=utf-8;'});
-      const url  = URL.createObjectURL(blob);
+      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url; a.download = filename;
       document.body.appendChild(a); a.click();
-      setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 0);
+      setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
     }
 
+    function toCSVWithCols(rows, columns, delimiter=','){
+      const cols = columns.map(c => c.key);
+      const esc = (s) => {
+        const v = s==null ? '' : String(s);
+        if (v.includes('"') || v.includes('\n') || v.includes(delimiter)) return `"${v.replace(/"/g,'""')}"`;
+        return v;
+      };
+      return cols.join(delimiter) + '\n' + rows.map(r => cols.map(k => esc(r[k])).join(delimiter)).join('\n');
+    }
+
+    // ---------- queue UI ----------
+    function renderQueueList(){
+      const listEl = $('queue-list');
+      const actionsEl = $('queue-actions');
+      if (!queueItems.length){
+        listEl.innerHTML = `
+          <div class="queue-empty">
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><rect x="6" y="8" width="20" height="16" rx="3" stroke="#ccc" stroke-width="1.5"/><path d="M10 13h12M10 17h8" stroke="#ccc" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <p>Sin búsquedas guardadas</p>
+          </div>`;
+        actionsEl.style.display = 'none';
+        return;
+      }
+      listEl.innerHTML = '';
+      queueItems.forEach((item, i) => {
+        const div = document.createElement('div');
+        div.className = 'queue-item';
+        div.innerHTML = `
+          <div class="queue-item-info">
+            <div class="queue-item-label" title="${item.label}">${item.label}</div>
+            <div class="queue-item-meta">${item.meta || ''}</div>
+          </div>
+          <span class="queue-item-count">${item.rows.length} filas</span>
+          <button class="queue-item-remove" data-idx="${i}" title="Eliminar">×</button>
+        `;
+        listEl.appendChild(div);
+      });
+      actionsEl.style.display = 'flex';
+    }
+
+    $('queue-list').addEventListener('click', (e) => {
+      const btn = e.target.closest('.queue-item-remove');
+      if (btn){
+        const idx = parseInt(btn.dataset.idx, 10);
+        queueItems.splice(idx, 1);
+        renderQueueList();
+      }
+    });
+
+    $('add-to-queue').addEventListener('click', () => {
+      if (!state.filteredRows.length){
+        showToast('No hay resultados para guardar', 'warning');
+        return;
+      }
+      const region = regionSel.options[regionSel.selectedIndex]?.text || '';
+      const comuna = comunaEl.value || '';
+      const calleA = calleAInp.value.trim();
+      const calleB = calleBInp.value.trim();
+      const label  = calleA && calleB ? `${calleA} × ${calleB}` : calleA || calleB || 'Sin nombre';
+      const meta   = [comuna, region].filter(Boolean).join(' · ');
+
+      queueItems.push({
+        label,
+        meta,
+        rows: state.filteredRows.map(r => Object.assign({}, r)),  // deep copy cada fila
+        columns: state.columns.map(c => Object.assign({}, c))
+      });
+      renderQueueList();
+      showToast(`✓ "${label}" agregado a la cola`);
+    });
+
+    $('export-queue').addEventListener('click', () => {
+      if (!queueItems.length){ showToast('La cola está vacía', 'warning'); return; }
+
+      // CSV unificado: cabecera única + columna "Búsqueda" para identificar cada filtrado
+      const cols = state.columns.map(c => c.key);
+      const esc = (s) => {
+        const v = s==null ? '' : String(s);
+        if (v.includes('"') || v.includes('\n') || v.includes(',')) return `"${v.replace(/"/g,'""')}"`;
+        return v;
+      };
+
+      const header = cols.join(',');
+      const bodyLines = [];
+      queueItems.forEach(item => {
+        item.rows.forEach(r => {
+          const line = cols.map(k => esc(r[k])).join(',');
+          bodyLines.push(line);
+        });
+      });
+
+      const csv = '\uFEFF' + header + '\n' + bodyLines.join('\n');
+      const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'accidentes_cola_unificado.csv';
+      document.body.appendChild(a); a.click();
+      setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+      const total = queueItems.reduce((s, i) => s + i.rows.length, 0);
+      showToast(`✓ ${queueItems.length} búsquedas · ${total} filas exportadas`);
+    });
+
+    $('clear-queue').addEventListener('click', () => {
+      queueItems.length = 0;
+      renderQueueList();
+      showToast('Cola vaciada', 'warning');
+    });
+
+    // ---------- export page & all ----------
     $('export-page')?.addEventListener('click', () => {
       const start = (state.page - 1) * state.limit;
       const slice = state.filteredRows.slice(start, start + state.limit);
@@ -376,23 +521,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // ---------- acciones principales ----------
     async function runQuery(){
-      try{
-        statusEl.textContent = 'Buscando…';
+      try {
+        showLoading();
         const regionSlug = regionSel.value;
         const comuna     = (comunaEl.value||"").trim();
         const Araw       = (calleAInp.value||"").trim();
         const Braw       = (calleBInp.value||"").trim();
 
-        if (!regionSlug){ statusEl.textContent='Elige una región.'; return; }
-        if (!comuna){ statusEl.textContent='Elige una comuna.'; return; }
-        if (!Araw && !Braw){ statusEl.textContent='Ingresa al menos una calle.'; return; }
+        if (!regionSlug){ showToast('Elige una región', 'warning'); showEmpty(); return; }
+        if (!comuna){ showToast('Elige una comuna', 'warning'); showEmpty(); return; }
+        if (!Araw && !Braw){ showToast('Ingresa al menos una calle', 'warning'); showEmpty(); return; }
 
         const pack = await loadPack(regionSlug, comuna);
-        if (!pack){ statusEl.textContent='Sin datos para esa comuna.'; return; }
+        if (!pack){ showToast('Sin datos para esa comuna', 'warning'); showEmpty(); return; }
 
         let rows = [];
+        let statusMsg = '';
         if (!Araw || !Braw){
-          // una sola calle → coincidencias flexibles
           const needle = normStreet(Araw || Braw);
           const seen = new Set();
           for (const key in (pack.intersections||{})){
@@ -406,9 +551,8 @@ document.addEventListener("DOMContentLoaded", () => {
               }
             }
           }
-          statusEl.textContent = `Coincidencias por una calle.`;
+          statusMsg = `Búsqueda por una calle`;
         } else {
-          // dos calles → exacta por slug o flexible por candidatas
           rows = await loadIntersection(regionSlug, comuna, Araw, Braw);
           if (!rows.length){
             const candA = await candidateStreets(regionSlug, comuna, Araw, 10);
@@ -426,66 +570,84 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
               }
             }
-            statusEl.textContent = rows.length ? 'Cruce flexible (variantes).' : 'Sin resultados para el cruce.';
+            statusMsg = rows.length ? 'Cruce flexible encontrado' : 'Sin resultados para el cruce';
           } else {
-            statusEl.textContent = 'Cruce exacto.';
+            statusMsg = 'Cruce exacto encontrado';
           }
         }
 
-        // set base & filtros
         state.allRows = rows;
         state.filters = {};
-        buildHeaderFilters(); // necesita allRows para armar opciones
+        buildHeaderFilters();
         state.filteredRows = [...state.allRows];
         state.page = 1;
         pageInp.value = 1;
-        renderPage();
-      }catch(e){
+        state.currentLabel = `${Araw}${Braw ? ' × ' + Braw : ''}`;
+
+        if (rows.length){
+          showResults();
+          renderPage();
+          statusEl.textContent = `${rows.length} resultados · ${statusMsg}`;
+        } else {
+          showEmpty();
+          emptyState.querySelector('h2').textContent = 'Sin resultados';
+          emptyState.querySelector('p').textContent = statusMsg + '. Intenta con otra combinación de calles.';
+          showToast(statusMsg, 'warning');
+        }
+      } catch(e) {
         console.error(e);
-        statusEl.textContent = 'Ocurrió un error. Revisa consola.';
+        showEmpty();
+        showToast('Error al buscar. Revisa la consola.', 'warning');
       }
     }
 
-    // eventos UI
+    // ---------- eventos UI ----------
     regionSel.addEventListener('change', async () => {
       await populateComunas(regionSel.value);
-      tbody.innerHTML=''; statusEl.textContent='Selecciona una comuna.';
+      showEmpty();
     });
-    document.addEventListener('change', async (ev) => {
-      if (ev.target && ev.target.id === 'comuna'){
-        const comuna = comunaEl.value;
-        if (comuna){
-          await populateStreetDatalists(regionSel.value, comuna);
-          tbody.innerHTML=''; statusEl.textContent='Ingresa calles y busca.';
-        }
+
+    comunaEl.addEventListener('change', async () => {
+      const comuna = comunaEl.value;
+      if (comuna){
+        await populateStreetDatalists(regionSel.value, comuna);
+        showEmpty();
       }
     });
-    $('buscar').addEventListener('click', () => { runQuery(); });
+
+    $('buscar').addEventListener('click', () => runQuery());
+
     $('limpiar').addEventListener('click', () => {
-      if (comunaEl.tagName.toLowerCase()==='select') comunaEl.selectedIndex = 0; else comunaEl.value='';
-      calleAInp.value=''; calleBInp.value='';
-      state.page=1; pageInp.value=1; state.allRows=[]; state.filteredRows=[]; state.filters={};
-      thead.innerHTML=''; tbody.innerHTML=''; statusEl.textContent='Listo';
+      comunaEl.selectedIndex = 0;
+      calleAInp.value = ''; calleBInp.value = '';
+      state.page = 1; pageInp.value = 1;
+      state.allRows = []; state.filteredRows = []; state.filters = {};
+      thead.innerHTML = ''; tbody.innerHTML = '';
+      showEmpty();
+      emptyState.querySelector('h2').textContent = 'Realiza una búsqueda';
+      emptyState.querySelector('p').textContent = 'Selecciona región, comuna e ingresa al menos una calle para ver los accidentes registrados.';
     });
 
     $('prev').addEventListener('click', () => {
       if (state.page > 1){ state.page--; pageInp.value = state.page; renderPage(); }
     });
+
     $('next').addEventListener('click', () => {
       const pages = Math.max(1, Math.ceil(state.filteredRows.length / state.limit));
       if (state.page < pages){ state.page++; pageInp.value = state.page; renderPage(); }
     });
+
     pageInp.addEventListener('change', () => {
-      let p = parseInt(pageInp.value||'1',10);
+      let p = parseInt(pageInp.value||'1', 10);
       if (Number.isNaN(p) || p < 1) p = 1;
       const pages = Math.max(1, Math.ceil(state.filteredRows.length / state.limit));
       if (p > pages) p = pages;
-      state.page = p;
-      pageInp.value = p;
+      state.page = p; pageInp.value = p;
       renderPage();
     });
 
-    // arranque: poblar comunas de la región por defecto
+    // ---------- arranque ----------
     await populateComunas(regionSel.value);
+    showEmpty();
   })();
 });

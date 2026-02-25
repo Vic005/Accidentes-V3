@@ -41,7 +41,7 @@ document.addEventListener("DOMContentLoaded", () => {
         {key:"Urbano/Rural", label:"Urbano/Rural", type:"cat"},
         {key:"Calleuno", label:"Calle 1", type:"text"},
         {key:"Calledos", label:"Calle 2", type:"text"},
-        {key:"Ubicación/km", label:"Ubicación/km", type:"text"},
+        {key:"Ubicación/km", label:"Ubicación/km", type:"cat"},
         {key:"Siniestros", label:"Siniestros", type:"cat"},
         {key:"Causas", label:"Causas", type:"cat"},
         {key:"Fallecidos", label:"Fallecidos", type:"num"},
@@ -185,25 +185,71 @@ document.addEventListener("DOMContentLoaded", () => {
         const th = document.createElement('th');
         let el;
         if (c.type === 'cat'){
-          el = document.createElement('select');
-          el.innerHTML = `<option value="">(Todos)</option>`;
-          // opciones únicas (capar a 200)
-          const uniques = Array.from(new Set(state.allRows.map(r => r[c.key]).filter(x => x!==undefined && x!==null && String(x).trim()!==""))).sort();
-          const sliced = uniques.slice(0, 200);
-          el.innerHTML += sliced.map(v => `<option value="${String(v)}">${String(v)}</option>`).join('');
-          if (uniques.length > 200){
-            const opt = document.createElement('option');
-            opt.value = "__MANY__";
-            opt.textContent = `… (${uniques.length} valores)`;
-            el.appendChild(opt);
-          }
+          el = document.createElement('div');
+          el.className = 'filter-box';
+        
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.textContent = 'Filtrar ▼';
+        
+          const panel = document.createElement('div');
+          panel.className = 'filter-panel';
+        
+          const uniques = Array.from(
+            new Set(
+              state.allRows
+                .map(r => r[c.key])
+                .filter(x => x!==undefined && x!==null && String(x).trim()!=="")
+            )
+          ).sort().slice(0, 200);
+        
+          uniques.forEach(v => {
+            const lbl = document.createElement('label');
+            const chk = document.createElement('input');
+            chk.type = 'checkbox';
+            chk.value = String(v);
+        
+            lbl.appendChild(chk);
+            lbl.append(' ' + String(v));
+            panel.appendChild(lbl);
+          });
+        
+          const applyBtn = document.createElement('button');
+          applyBtn.type = 'button';
+          applyBtn.textContent = 'Aplicar';
+        
+          applyBtn.addEventListener('click', () => {
+            const selected = Array.from(
+              panel.querySelectorAll('input:checked')
+            ).map(i => i.value);
+        
+            if (selected.length){
+              state.filters[c.key] = selected;
+            } else {
+              delete state.filters[c.key];
+            }
+        
+            applyFilters();
+            panel.style.display = 'none';
+          });
+        
+          btn.addEventListener('click', () => {
+            panel.style.display =
+              panel.style.display === 'block' ? 'none' : 'block';
+          });
+        
+          el.appendChild(btn);
+          el.appendChild(panel);
+          el.appendChild(applyBtn);
         } else {
           el = document.createElement('input');
           el.type = 'text';
           el.placeholder = (c.type === 'num') ? 'e.j. >=1' : 'contiene…';
         }
-        el.dataset.col = c.key;
-        el.addEventListener('input', onFilterChange);
+        if (c.type !== 'cat'){
+          el.dataset.col = c.key;
+          el.addEventListener('input', onFilterChange);
+        }
         th.appendChild(el);
         tr2.appendChild(th);
       });
@@ -216,9 +262,14 @@ document.addEventListener("DOMContentLoaded", () => {
     function onFilterChange(ev){
       const el = ev.target;
       const col = el.dataset.col;
-      const v = (el.tagName === 'SELECT') ? el.value : el.value.trim();
-      if (!v) delete state.filters[col];
-      else state.filters[col] = v;
+      const v = el.value.trim();
+    
+      if (!v){
+        delete state.filters[col];
+      } else {
+        state.filters[col] = v;
+      }
+    
       applyFilters();
     }
 
@@ -243,7 +294,11 @@ document.addEventListener("DOMContentLoaded", () => {
             if (op==='<= ' && !(num <= rhs)) return false;
             if (op==='<=') { if (!(num <= rhs)) return false; }
           } else if (sc?.type === 'cat'){
-            if (String(val) !== String(rule)) return false;
+            if (Array.isArray(rule)){
+              if (!rule.map(String).includes(String(val))) return false;
+            } else {
+              if (String(val) !== String(rule)) return false;
+            }
           } else {
             const needle = rmAcc(rule).toLowerCase();
             const hay = rmAcc(String(val||"")).toLowerCase();

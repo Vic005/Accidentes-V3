@@ -4,92 +4,162 @@
   <meta charset="utf-8" />
   <title>Base de Datos de Accidentes — Chile</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
+
+  <!-- HEADER: posición fixed, ancho 100vw, sin max-width -->
   <header class="header">
-    <div class="brand">
-      <div>
-        <h1>Base de Datos de Accidentes — Chile</h1>
-        <p class="subtitle">Consulta por Región, Comuna e Intersección — últimos 5 años según datos de Carabineros.cl</p>
+    <div class="header-brand">
+      <div class="header-logo">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="8" fill="white" fill-opacity="0.2"/><path d="M14 5L19 10H16V18H12V10H9L14 5Z" fill="white"/><path d="M7 20H21" stroke="white" stroke-width="2" stroke-linecap="round"/></svg>
       </div>
+      <div>
+        <h1>Base de Datos de Accidentes</h1>
+        <p class="subtitle">Chile · Datos Carabineros.cl · Últimos 5 años · Actualización 25/02/2026</p>
+      </div>
+    </div>
+    <div class="header-badge">
+      <span class="badge-dot"></span>
+      Datos oficiales
     </div>
   </header>
 
-  <main class="container">
-    <section class="card">
-      <div class="brand">
-        <div>
-          <p style="margin-bottom: 20px;"  class="text" ><b>NOTA: </b >Se recomienda buscar primero 1 calle para ver las posibles combinaciones/Última actualización 06/01/2026</p>
+  <!-- Contenedor principal: sidebar fijo + contenido -->
+  <div class="page-body">
+
+    <!-- SIDEBAR izquierdo fijo -->
+    <aside class="sidebar">
+
+      <div class="sidebar-section">
+        <div class="step-header">
+          <span class="step-num">1</span>
+          <span class="step-label">Ubicación</span>
         </div>
-      </div>
-      <h2 class="card-title">Búsqueda</h2>
-      <div class="grid grid-2">
         <div class="field">
           <label for="region">Región</label>
           <select id="region"></select>
         </div>
         <div class="field">
-          <label for="comuna">Comuna (texto exacto o parcial)</label>
-          <input id="comuna" placeholder="Ej: Santiago / Rancagua / Valparaíso" />
+          <label for="comuna">Comuna</label>
+          <select id="comuna">
+            <option value="">— Elige una región primero —</option>
+          </select>
         </div>
       </div>
 
-      <div class="grid grid-3">
+      <div class="sidebar-section">
+        <div class="step-header">
+          <span class="step-num">2</span>
+          <span class="step-label">Intersección</span>
+        </div>
+        <p class="hint">💡 Busca primero solo Calle A para explorar opciones</p>
         <div class="field">
           <label for="calleA">Calle A</label>
-          <input id="calleA" placeholder="Ej: Alameda" />
+          <input id="calleA" placeholder="Ej: Alameda" autocomplete="off" />
         </div>
+        <div class="field-divider"><span>×</span></div>
         <div class="field">
-          <label for="calleB">Calle B</label>
-          <input id="calleB" placeholder="Ej: Vicuña Mackenna" />
+          <label for="calleB">Calle B <span class="optional">(opcional)</span></label>
+          <input id="calleB" placeholder="Ej: Vicuña Mackenna" autocomplete="off" />
         </div>
-        <div class="field align-end">
-          <div class="btn-row">
-            <button id="buscar" class="btn-primary">Buscar</button>
-            <button id="limpiar" class="btn-primary" >Limpiar</button>
-            <button id="export-page" class="btn-primary">Exportar página</button>
-            <button id="export-all" class="btn-primary" >Exportar filtrado</button>
+      </div>
+
+      <div class="sidebar-section">
+        <button id="buscar" class="btn-search">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.8"/><path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          Buscar accidentes
+        </button>
+        <button id="limpiar" class="btn-clear">Limpiar búsqueda</button>
+      </div>
+
+      <div class="sidebar-section queue-section">
+        <div class="step-header">
+          <span class="step-num">3</span>
+          <span class="step-label">Cola de descarga</span>
+        </div>
+        <p class="hint">Guarda búsquedas y descárgalas en un solo CSV</p>
+
+        <div id="queue-list" class="queue-list">
+          <div class="queue-empty">
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><rect x="6" y="8" width="20" height="16" rx="3" stroke="#ccc" stroke-width="1.5"/><path d="M10 13h12M10 17h8" stroke="#ccc" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <p>Sin búsquedas guardadas</p>
           </div>
         </div>
-      </div>
 
-      <div class="toolbar">
-        <div class="pager">
-          <span class="muted">Página</span>
-          <button id="prev" class="btn btn-icon" title="Anterior">⟵</button>
-          <input id="page" type="number" min="1" value="1" />
-          <button id="next" class="btn btn-icon" title="Siguiente">⟶</button>
+        <div class="queue-actions" id="queue-actions" style="display:none">
+          <button id="export-queue" class="btn-export-queue">
+            <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 1v9M4 7l3.5 3.5L11 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12h11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            Descargar cola (CSV)
+          </button>
+          <button id="clear-queue" class="btn-clear-queue">Vaciar cola</button>
         </div>
-        <div class="spacer"></div>
-        <div class="status" id="status">Listo</div>
       </div>
 
-      <div class="table-wrap">
+    </aside>
+
+    <!-- ÁREA DE CONTENIDO (scroll vertical propio) -->
+    <div class="content">
+
+      <!-- Barra de acciones: SIEMPRE visible, NO entra en el scroll horizontal de la tabla -->
+      <div class="action-bar" id="action-bar" style="display:none">
+        <div class="action-bar-left">
+          <span id="status" class="status-text">Listo</span>
+          <div class="pager-bar">
+            <button id="prev" class="pager-btn">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <span class="pager-label">Pág.</span>
+            <input id="page" type="number" min="1" value="1" class="pager-input" />
+            <span id="page-total" class="pager-total"></span>
+            <button id="next" class="pager-btn">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="action-bar-right">
+          <button id="add-to-queue" class="btn-add-queue">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2v8M3.5 6.5L7 10l3.5-3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            Guardar en cola
+          </button>
+          <button id="export-page" class="btn-icon-action">
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M2 10h10M7 2v6M4 5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Pág. actual
+          </button>
+          <button id="export-all" class="btn-icon-action">
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M2 10h10M7 2v6M4 5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Filtrado Actual
+          </button>
+        </div>
+      </div>
+
+      <!-- Estado vacío -->
+      <div id="empty-state" class="empty-state">
+        <div class="empty-icon">
+          <svg width="56" height="56" viewBox="0 0 56 56" fill="none"><rect x="8" y="12" width="40" height="32" rx="6" stroke="#F4A600" stroke-width="2"/><path d="M16 22h24M16 28h16M16 34h10" stroke="#F4A600" stroke-width="2" stroke-linecap="round"/></svg>
+        </div>
+        <h2>Realiza una búsqueda</h2>
+        <p>Selecciona región, comuna e ingresa al menos una calle para ver los accidentes registrados.</p>
+      </div>
+
+      <!-- Tabla (scroll horizontal propio) -->
+      <div id="results-panel" style="display:none" class="table-wrap">
         <table id="tbl">
-          <thead>
-            <tr>
-              <th>Fecha</th>
-              <th>Región</th>
-              <th>Comuna</th>
-              <th>Urbano/Rural</th>
-              <th>Calleuno</th>
-              <th>Calledos</th>
-              <th>Ubicación/km</th>
-              <th>Siniestros</th>
-              <th>Causas</th>
-              <th>Fallecidos</th>
-              <th>Graves</th>
-              <th>M/Grave</th>
-              <th>Leves</th>
-              <th>Ilesos</th>
-            </tr>
-          </thead>
+          <thead></thead>
           <tbody></tbody>
         </table>
       </div>
-    </section>
-  </main>
+
+      <!-- Loading -->
+      <div id="loading-state" style="display:none" class="loading-state">
+        <div class="spinner"></div>
+        <p>Buscando accidentes…</p>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /page-body -->
 
   <script type="module" src="./app.js"></script>
 </body>
